@@ -1,0 +1,8 @@
+state,series,observations,missing_rate,duplicate_dates,large_zscore_count,release_lag_days
+CA,payroll,120,0.0,0,0,21
+CA,coincident,120,0.0,0,0,21
+CA,claims,120,0.0,0,0,7
+CA,permits,120,0.0,0,0,30
+CA,business_formations,120,0.0,0,0,30
+CA,national_activity,120,0.0,0,0,21
+CA,real_gdp,40,0.0,0,0,90

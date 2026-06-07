@@ -13,34 +13,40 @@ Regional activity can be summarized with a small common factor extracted from pa
 - BEA API: quarterly state real GDP target. Get a key at https://apps.bea.gov/API/signup/ and set `BEA_API_KEY`.
 - BLS API: QCEW, CES, and LAUS validation data. Set `BLS_API_KEY` if using registered BLS calls.
 
-Raw pulls are cached under `data/raw/` with the fetch date and sidecar JSON provenance. Series IDs must be verified through provider metadata before live use; the current smoke-test path uses deterministic synthetic fixture data so tests do not depend on API keys.
+Raw pulls are cached under `data/raw/` with the fetch date and sidecar JSON provenance. Series IDs must be verified through provider metadata before live use; the current smoke-test path uses deterministic synthetic fixture data so tests do not depend on API keys. The audit surface for live work is `config/series_registry.yml`, which records source, frequency, transform, expected sign, release lag, vintage policy, and verification status.
 
 ## Methods
 
 The composite index standardizes each indicator within state and averages available z-scores, with unemployment claims inverted. The DFM path uses `statsmodels.tsa.statespace.dynamic_factor_mq.DynamicFactorMQ` to estimate a one-factor state activity signal.
 
-The nowcast target is quarterly BEA state real GDP. Monthly data are converted to quarterly means after applying a documented release-lag table. The expanding-window backtest refits models using only prior target observations and only indicators assumed released as of the nowcast date.
+The nowcast target is quarterly BEA state real GDP, evaluated as `level`, annualized quarter-over-quarter growth (`qoq_ann`), or year-over-year growth (`yoy`). Monthly data are converted to quarterly means after applying the registry release-lag table. The expanding-window backtest refits models using only prior target observations and only indicators assumed released as of the forecast origin.
+
+Benchmarks now include random walk, state-specific AR(1), state mean, pooled mean, peer average, and national-context bridge. Candidate models are ridge bridge regression and DFM-factor bridge. Reports include RMSE, MAE, bias, directional accuracy, Diebold-Mariano tests versus AR(1), data-quality diagnostics, index comparison, and error-over-time charts.
 
 ## What Is Real Vs Simulated
 
-Real: package structure, provider interfaces, caching discipline, series verification helpers, DFM/composite estimators, expanding-window evaluation, benchmark comparisons, report generation, and API-key documentation.
+Real: package structure, provider interfaces, caching discipline, series registry, series verification helpers, DFM/composite estimators, expanding-window evaluation, benchmark comparisons, target transforms, diagnostics, report generation, and API-key documentation.
 
 Simulated: the default smoke pipeline uses synthetic indicator and GDP data. Ragged-edge availability is simulated with release-lag assumptions unless ALFRED vintages are wired for a specific FRED series.
 
 ## Point-In-Time Assumptions
 
-Default release lags are 7 days for weekly FRED series, 21 days for monthly FRED/BLS series, 30 days for Census monthly series, and 90 days for BEA quarterly GDP. These assumptions are conservative placeholders and should be audited against each production series calendar before publishing live metrics.
+Default release lags are 7 days for weekly FRED series, 21 days for monthly FRED/BLS series, 30 days for Census monthly series, and 90 days for BEA quarterly GDP. These assumptions live in `config/series_registry.yml` and should be audited against each production series calendar before publishing live metrics. Backtest rows include `forecast_origin`, `nowcast_lag_days`, and `available_indicator_share`.
 
 ## Latest Metrics
 
-Current synthetic fixture run, CA, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters:
+Current synthetic fixture run, CA, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters, target transform `level`:
 
 | Model | OOS RMSE |
 | --- | ---: |
-| bridge | 0.555422 |
-| dfm | 0.673860 |
-| random_walk | 1.106456 |
-| ar1 | 1.183801 |
+| bridge | 0.511052 |
+| dfm | 0.517253 |
+| peer_average | 1.015581 |
+| random_walk | 1.015581 |
+| ar1 | 1.124854 |
+| national_bridge | 3.103124 |
+| pooled_mean | 3.548653 |
+| state_mean | 3.548653 |
 
 These are smoke-test metrics, not live economic claims. Regenerate `report/oos_rmse_table.csv` after switching to verified live public data.
 
@@ -51,9 +57,19 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 PYTHONPATH=src .venv/bin/python scripts/fetch_data.py --synthetic --states CA --start 2015-01-01 --end 2024-12-31
 PYTHONPATH=src .venv/bin/python scripts/build_index.py
-PYTHONPATH=src .venv/bin/python scripts/backtest.py --min-train-quarters 12
+PYTHONPATH=src .venv/bin/python scripts/backtest.py --min-train-quarters 12 --target-transform level --nowcast-lag-days 45
 PYTHONPATH=src .venv/bin/python -m pytest -q
 ```
+
+Key generated files:
+
+- `report/oos_metrics_table.csv`
+- `report/oos_rmse_table.csv`
+- `report/diebold_mariano_vs_ar1.csv`
+- `report/data_quality_report.csv`
+- `report/index_comparison.csv`
+- `report/index-vs-official-series.png`
+- `report/nowcast-error-over-time.png`
 
 ## Limitations
 

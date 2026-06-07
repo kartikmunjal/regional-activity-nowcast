@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from regional_activity_nowcast.data import make_synthetic_panel
-from regional_activity_nowcast.evaluate import expanding_window_backtest, rmse_table, write_report_artifacts
+from regional_activity_nowcast.data import make_synthetic_panel, target_for_model
+from regional_activity_nowcast.evaluate import expanding_window_backtest, metric_table, rmse_table, write_report_artifacts
 from regional_activity_nowcast.index import dynamic_factor_index, standardized_composite
 
 
@@ -15,10 +15,23 @@ def test_full_pipeline_smoke(tmp_path, monkeypatch):
 
     results = expanding_window_backtest(monthly, target, min_train_quarters=8)
     table = rmse_table(results)
-    assert set(results["model"]) == {"random_walk", "ar1", "bridge", "dfm"}
+    assert set(results["model"]) == {
+        "random_walk",
+        "ar1",
+        "state_mean",
+        "pooled_mean",
+        "peer_average",
+        "national_bridge",
+        "bridge",
+        "dfm",
+    }
+    assert {"forecast_origin", "target_transform", "available_indicator_share"}.issubset(results.columns)
     assert table["rmse"].notna().all()
+    assert metric_table(results)["mae"].notna().all()
+    assert "target_value" in target_for_model(target, "qoq_ann").columns
 
     write_report_artifacts(monthly, target, results, report_dir="report")
     assert Path("report/oos_rmse_table.csv").exists()
+    assert Path("report/oos_metrics_table.csv").exists()
+    assert Path("report/data_quality_report.csv").exists()
     assert Path("report/methods.md").exists()
-

@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from regional_activity_nowcast.data import fetch_bea_state_gdp, make_synthetic_panel
+from regional_activity_nowcast.data import fetch_bea_state_gdp, load_series_registry, make_synthetic_panel, registry_specs
 
 
 def main() -> None:
@@ -14,15 +14,23 @@ def main() -> None:
     parser.add_argument("--states", nargs="+", default=["CA"])
     parser.add_argument("--start", default="2015-01-01")
     parser.add_argument("--end", default="2024-12-31")
+    parser.add_argument("--registry", default="config/series_registry.yml")
     parser.add_argument("--synthetic", action="store_true", help="Create deterministic offline fixture data.")
     args = parser.parse_args()
 
     if args.synthetic:
         monthly, target = make_synthetic_panel(args.states, args.start, args.end)
     else:
+        registry = load_series_registry(args.registry)
+        specs = registry_specs(registry, states=args.states)
+        if not specs:
+            raise SystemExit(
+                "No verified live indicator SeriesSpec entries found for the requested states. "
+                "Populate config/series_registry.yml with provider-confirmed IDs first."
+            )
         raise SystemExit(
-            "Live FRED/Census indicator fetches require confirmed series mapping for each requested state. "
-            "Use --synthetic for the smoke fixture, or extend data.py with verified SeriesSpec entries."
+            "Live fetch orchestration is intentionally gated until every requested source has verified IDs "
+            "and provider-specific parsers. Use --synthetic for the smoke fixture."
         )
 
     Path("data/processed").mkdir(parents=True, exist_ok=True)
@@ -33,4 +41,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

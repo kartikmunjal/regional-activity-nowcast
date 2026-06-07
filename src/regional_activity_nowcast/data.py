@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 import pandas as pd
 import requests
+import yaml
 
 
 RAW_DIR = Path("data/raw")
@@ -89,10 +90,54 @@ DEFAULT_RELEASE_LAGS = {
     "bls_monthly": 21,
 }
 
+TARGET_TRANSFORMS = {"level", "qoq_ann", "yoy"}
+
 
 def ensure_dirs() -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def load_series_registry(path: str | Path = "config/series_registry.yml") -> dict:
+    """Load auditable source metadata for indicators and targets."""
+    registry_path = Path(path)
+    if not registry_path.exists():
+        raise FileNotFoundError(f"Series registry not found: {registry_path}")
+    return yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+
+
+def registry_release_lags(registry: dict) -> dict[str, int]:
+    """Map indicator column names to release lags from the registry."""
+    lags: dict[str, int] = {}
+    for item in registry.get("indicators", []):
+        name = item.get("name")
+        if name:
+            lags[name] = int(item.get("release_lag_days", DEFAULT_RELEASE_LAGS.get("fred_monthly", 21)))
+    return lags
+
+
+def registry_specs(registry: dict, states: list[str] | None = None) -> list[SeriesSpec]:
+    """Convert verified registry rows with explicit series IDs into SeriesSpec objects."""
+    wanted_states = set(states or [])
+    specs = []
+    for item in registry.get("indicators", []):
+        series_by_state = item.get("series_by_state") or {}
+        for state, series_id in series_by_state.items():
+            if wanted_states and state not in wanted_states:
+                continue
+            if item.get("verified") is not True:
+                continue
+            specs.append(
+                SeriesSpec(
+                    source=item.get("source", ""),
+                    series_id=series_id,
+                    frequency=item.get("frequency", "monthly"),
+                    release_lag_days=int(item.get("release_lag_days", 21)),
+                    transform=item.get("transform", "level"),
+                    description=f"{state}:{item.get('name', series_id)}",
+                )
+            )
+    return specs
 
 
 def cache_frame(frame: pd.DataFrame, source: str, name: str) -> Path:
@@ -213,7 +258,9 @@ def make_synthetic_panel(states: list[str], start: str, end: str, seed: int = 7)
         coincident = 100 + 1.3 * factor + rng.normal(0, 0.25, len(monthly_dates))
         claims = 50 - 1.2 * factor + rng.normal(0, 0.3, len(monthly_dates))
         permits = 75 + 0.5 * factor + rng.normal(0, 0.8, len(monthly_dates))
-        for dt, pay, ci, clm, prm in zip(monthly_dates, payroll, coincident, claims, permits):
+        formations = 40 + 0.7 * factor + rng.normal(0, 0.5, len(monthly_dates))
+        national_activity = 100 + np.cumsum(rng.normal(0, 0.18, len(monthly_dates)))
+        for dt, pay, ci, clm, prm, frm, nat in zip(monthly_dates, payroll, coincident, claims, permits, formations, national_activity):
             indicators.append(
                 {
                     "date": dt,
@@ -222,6 +269,8 @@ def make_synthetic_panel(states: list[str], start: str, end: str, seed: int = 7)
                     "coincident": ci,
                     "claims": clm,
                     "permits": prm,
+                    "business_formations": frm,
+                    "national_activity": nat,
                 }
             )
         monthly = pd.Series(factor, index=monthly_dates)
@@ -253,3 +302,64 @@ def apply_release_lags(panel: pd.DataFrame, as_of: str | pd.Timestamp, release_l
         out.loc[released > as_of_ts, col] = np.nan
     return out
 
+
+def availability_matrix(panel: pd.DataFrame, as_of: str | pd.Timestamp, release_lags: dict[str, int] | None = None) -> pd.DataFrame:
+    """Boolean observation availability by row/series for a forecast origin."""
+    lags = release_lags or {}
+    as_of_ts = pd.Timestamp(as_of)
+    value_cols = [c for c in panel.columns if c not in {"date", "state"}]
+    rows = panel[["date", "state"]].copy()
+    for col in value_cols:
+        lag = int(lags.get(col, DEFAULT_RELEASE_LAGS.get("fred_monthly", 21)))
+        rows[col] = pd.to_datetime(panel["date"]) + pd.to_timedelta(lag, unit="D") <= as_of_ts
+    return rows
+
+
+def target_for_model(target: pd.DataFrame, transform: str = "level") -> pd.DataFrame:
+    """Create the modeling target without contaminating the stored official level."""
+    if transform not in TARGET_TRANSFORMS:
+        raise ValueError(f"Unknown target transform {transform!r}; expected one of {sorted(TARGET_TRANSFORMS)}")
+    out = target.sort_values(["state", "date"]).copy()
+    if transform == "level":
+        out["target_value"] = out["real_gdp"]
+    elif transform == "qoq_ann":
+        growth = out.groupby("state")["real_gdp"].pct_change()
+        out["target_value"] = 100 * ((1 + growth) ** 4 - 1)
+    elif transform == "yoy":
+        out["target_value"] = 100 * out.groupby("state")["real_gdp"].pct_change(4)
+    out["target_transform"] = transform
+    return out.dropna(subset=["target_value"]).reset_index(drop=True)
+
+
+def data_quality_report(monthly_panel: pd.DataFrame, target: pd.DataFrame, release_lags: dict[str, int] | None = None) -> pd.DataFrame:
+    """Basic checks that should be inspected before trusting model output."""
+    rows = []
+    feature_cols = [c for c in monthly_panel.columns if c not in {"date", "state"}]
+    for state, group in monthly_panel.groupby("state"):
+        for col in feature_cols:
+            values = group[col]
+            z = (values - values.mean()) / values.std(ddof=0) if values.std(ddof=0) else values * 0
+            rows.append(
+                {
+                    "state": state,
+                    "series": col,
+                    "observations": int(values.notna().sum()),
+                    "missing_rate": float(values.isna().mean()),
+                    "duplicate_dates": int(group.duplicated(["date"]).sum()),
+                    "large_zscore_count": int((z.abs() > 5).sum()),
+                    "release_lag_days": int((release_lags or {}).get(col, DEFAULT_RELEASE_LAGS["fred_monthly"])),
+                }
+            )
+    for state, group in target.groupby("state"):
+        rows.append(
+            {
+                "state": state,
+                "series": "real_gdp",
+                "observations": int(group["real_gdp"].notna().sum()),
+                "missing_rate": float(group["real_gdp"].isna().mean()),
+                "duplicate_dates": int(group.duplicated(["date"]).sum()),
+                "large_zscore_count": 0,
+                "release_lag_days": DEFAULT_RELEASE_LAGS["bea_quarterly"],
+            }
+        )
+    return pd.DataFrame(rows)
