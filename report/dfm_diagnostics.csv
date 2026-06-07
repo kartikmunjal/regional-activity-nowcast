@@ -1,0 +1,3 @@
+state,observations,features,converged,iterations,llf,warning_count,status
+CA,120,6,True,92,-697.5874925940556,0,fit
+TX,120,6,False,200,-647.5669221081578,1,fit

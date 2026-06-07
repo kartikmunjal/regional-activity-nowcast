@@ -1,0 +1,5 @@
+source_state,target_state,indicator,lead_quarters,correlation,observations
+CA,CA,coincident,1,0.29031272842703604,39
+TX,TX,coincident,1,0.23147895389871576,39
+CA,TX,coincident,1,-0.09788568012866833,39
+TX,CA,coincident,1,0.03461539206718255,39

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from regional_activity_nowcast.data import load_series_registry, registry_release_lags
+from regional_activity_nowcast.data import apply_indicator_transforms, load_series_registry, registry_release_lags
 from regional_activity_nowcast.evaluate import expanding_window_backtest, metric_table, write_report_artifacts
 
 
@@ -25,6 +25,7 @@ def main() -> None:
     monthly = pd.read_csv(args.monthly, parse_dates=["date"])
     target = pd.read_csv(args.target, parse_dates=["date"])
     registry = load_series_registry(args.registry)
+    monthly = apply_indicator_transforms(monthly, registry)
     release_lags = registry_release_lags(registry)
     results = expanding_window_backtest(
         monthly,

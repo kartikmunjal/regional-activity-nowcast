@@ -140,6 +140,39 @@ def registry_specs(registry: dict, states: list[str] | None = None) -> list[Seri
     return specs
 
 
+def verify_registry(registry: dict, states: list[str] | None = None) -> pd.DataFrame:
+    """Verify registry IDs against provider metadata where API support exists."""
+    rows = []
+    wanted_states = set(states or [])
+    fred_ids: list[str] = []
+    id_to_meta: dict[str, tuple[str, str]] = {}
+    for item in registry.get("indicators", []):
+        if item.get("source") != "FRED":
+            continue
+        for state, series_id in (item.get("series_by_state") or {}).items():
+            if wanted_states and state not in wanted_states:
+                continue
+            fred_ids.append(series_id)
+            id_to_meta[series_id] = (item.get("name", ""), state)
+    fred_status = verify_fred_series(fred_ids) if fred_ids else {}
+    for series_id, ok in fred_status.items():
+        name, state = id_to_meta[series_id]
+        rows.append({"source": "FRED", "state": state, "series": name, "series_id": series_id, "verified": ok})
+    for item in registry.get("indicators", []):
+        if item.get("source") == "FRED":
+            continue
+        rows.append(
+            {
+                "source": item.get("source"),
+                "state": ",".join(sorted((item.get("series_by_state") or {}).keys())) or "ALL",
+                "series": item.get("name"),
+                "series_id": "",
+                "verified": bool(item.get("verified")),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def cache_frame(frame: pd.DataFrame, source: str, name: str) -> Path:
     ensure_dirs()
     stamp = date.today().isoformat()
@@ -196,6 +229,39 @@ def fetch_fred_series(specs: list[SeriesSpec], start: str, end: str) -> pd.DataF
     frame = pd.concat(frames, axis=1).sort_index()
     frame.index.name = "date"
     cache_frame(frame, "fred", "verified_series")
+    return frame
+
+
+def fetch_fred_series_as_of(specs: list[SeriesSpec], start: str, end: str, as_of: str) -> pd.DataFrame:
+    """Fetch FRED/ALFRED observations as known on a vintage date where available."""
+    key = os.getenv("FRED_API_KEY")
+    if not key:
+        raise RuntimeError("FRED_API_KEY is required. See README for key setup.")
+    verification = verify_fred_series([spec.series_id for spec in specs], key)
+    missing = [sid for sid, ok in verification.items() if not ok]
+    if missing:
+        raise RuntimeError(f"FRED series failed verification: {missing}")
+
+    from fredapi import Fred
+
+    fred = Fred(api_key=key)
+    frames = []
+    for spec in specs:
+        if not hasattr(fred, "get_series_as_of_date"):
+            raise RuntimeError("Installed fredapi version does not expose get_series_as_of_date.")
+        vintages = fred.get_series_as_of_date(spec.series_id, as_of)
+        if isinstance(vintages, pd.DataFrame):
+            date_col = "date" if "date" in vintages.columns else vintages.columns[0]
+            value_col = "value" if "value" in vintages.columns else vintages.columns[-1]
+            vintage = vintages.assign(date=pd.to_datetime(vintages[date_col])).set_index("date")[value_col].astype(float)
+        else:
+            vintage = pd.Series(vintages)
+            vintage.index = pd.to_datetime(vintage.index)
+        vintage = vintage[(vintage.index >= pd.Timestamp(start)) & (vintage.index <= pd.Timestamp(end))]
+        frames.append(vintage.rename(spec.series_id))
+    frame = pd.concat(frames, axis=1).sort_index()
+    frame.index.name = "date"
+    cache_frame(frame, "fred_alfred", f"verified_series_as_of_{as_of}")
     return frame
 
 
@@ -300,6 +366,27 @@ def apply_release_lags(panel: pd.DataFrame, as_of: str | pd.Timestamp, release_l
         lag = int(lags.get(col, DEFAULT_RELEASE_LAGS.get("fred_monthly", 21)))
         released = pd.to_datetime(out["date"]) + pd.to_timedelta(lag, unit="D")
         out.loc[released > as_of_ts, col] = np.nan
+    return out
+
+
+def apply_indicator_transforms(panel: pd.DataFrame, registry: dict | None = None) -> pd.DataFrame:
+    """Apply registry transforms in a state-local, no-lookahead way."""
+    if not registry:
+        return panel.copy()
+    transform_by_name = {item.get("name"): item.get("transform", "level") for item in registry.get("indicators", [])}
+    out = panel.sort_values(["state", "date"]).copy()
+    for col, transform in transform_by_name.items():
+        if col not in out.columns or transform in {None, "level"}:
+            continue
+        grouped = out.groupby("state")[col]
+        if transform == "pct_change":
+            out[col] = grouped.pct_change() * 100
+        elif transform == "diff":
+            out[col] = grouped.diff()
+        elif transform == "log_diff":
+            out[col] = grouped.transform(lambda s: np.log(s.where(s > 0)).diff() * 100)
+        else:
+            raise ValueError(f"Unsupported transform {transform!r} for indicator {col!r}")
     return out
 
 

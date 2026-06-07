@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from regional_activity_nowcast.data import apply_indicator_transforms, load_series_registry
 from regional_activity_nowcast.index import compare_indexes, dynamic_factor_index, standardized_composite
 
 
@@ -15,9 +16,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--monthly", default="data/processed/monthly_indicators.csv")
     parser.add_argument("--target", default="data/processed/quarterly_gdp.csv")
+    parser.add_argument("--registry", default="config/series_registry.yml")
     args = parser.parse_args()
 
-    monthly = pd.read_csv(args.monthly, parse_dates=["date"])
+    registry = load_series_registry(args.registry)
+    monthly = apply_indicator_transforms(pd.read_csv(args.monthly, parse_dates=["date"]), registry)
     target = pd.read_csv(args.target, parse_dates=["date"])
     composite = standardized_composite(monthly)
     try:

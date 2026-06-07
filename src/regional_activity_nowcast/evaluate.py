@@ -20,7 +20,7 @@ from .data import (
     registry_release_lags,
     target_for_model,
 )
-from .index import compare_indexes, dynamic_factor_index, standardized_composite
+from .index import compare_indexes, dynamic_factor_diagnostics, dynamic_factor_index, standardized_composite
 from .nowcast import (
     ar1_forecast,
     bridge_nowcast,
@@ -157,6 +157,7 @@ def write_report_artifacts(
     except Exception:
         dfm = pd.DataFrame(columns=["date", "state", "dfm_index"])
     compare_indexes(composite, dfm, target).to_csv(path / "index_comparison.csv", index=False)
+    dynamic_factor_diagnostics(monthly_panel).to_csv(path / "dfm_diagnostics.csv", index=False)
     metric_table(results).to_csv(path / "oos_metrics_table.csv", index=False)
     rmse_table(results).to_csv(path / "oos_rmse_table.csv", index=False)
     diebold_mariano_table(results).to_csv(path / "diebold_mariano_vs_ar1.csv", index=False)

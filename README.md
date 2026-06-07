@@ -35,18 +35,18 @@ Default release lags are 7 days for weekly FRED series, 21 days for monthly FRED
 
 ## Latest Metrics
 
-Current synthetic fixture run, CA, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters, target transform `level`:
+Current synthetic fixture run, CA and TX, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters, target transform `level`:
 
 | Model | OOS RMSE |
 | --- | ---: |
-| bridge | 0.511052 |
-| dfm | 0.517253 |
-| peer_average | 1.015581 |
-| random_walk | 1.015581 |
-| ar1 | 1.124854 |
-| national_bridge | 3.103124 |
-| pooled_mean | 3.548653 |
-| state_mean | 3.548653 |
+| bridge | 1.065583 |
+| random_walk | 1.163414 |
+| ar1 | 1.241417 |
+| state_mean | 3.968898 |
+| national_bridge | 8.268097 |
+| dfm | 9.767166 |
+| pooled_mean | 9.796142 |
+| peer_average | 19.303375 |
 
 These are smoke-test metrics, not live economic claims. Regenerate `report/oos_rmse_table.csv` after switching to verified live public data.
 
@@ -55,11 +55,18 @@ These are smoke-test metrics, not live economic claims. Regenerate `report/oos_r
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-PYTHONPATH=src .venv/bin/python scripts/fetch_data.py --synthetic --states CA --start 2015-01-01 --end 2024-12-31
+PYTHONPATH=src .venv/bin/python scripts/fetch_data.py --synthetic --states CA TX --start 2015-01-01 --end 2024-12-31
 PYTHONPATH=src .venv/bin/python scripts/build_index.py
 PYTHONPATH=src .venv/bin/python scripts/backtest.py --min-train-quarters 12 --target-transform level --nowcast-lag-days 45
+PYTHONPATH=src .venv/bin/python scripts/run_research_findings.py --target-transform qoq_ann --max-lag-quarters 4 --clusters 4 --data-label "synthetic CA/TX fixture"
 PYTHONPATH=src .venv/bin/python -m pytest -q
 ```
+
+## Phased Research Workflow
+
+Phase 1 is the initial deliverable from the original prompt: public-data-shaped data access, state activity indexes, DFM and bridge nowcasts, random-walk/AR(1) benchmarks, expanding-window evaluation, simulated ragged-edge discipline, report artifacts, tests, README, requirements, and MIT license. It is preserved in `report/phase1_initial_framework.md`.
+
+Phase 2 and later are research extensions added after the initial framework: verified-registry discipline, vintage-ready FRED helpers, lead-lag analysis, state sensitivity profiles, regional clusters, turning-point screens, spillover checks, and bridge contribution tables. Phase 2 is described in `report/phase2_research_layer.md` and generated into `report/research_findings.md`.
 
 Key generated files:
 
@@ -67,9 +74,27 @@ Key generated files:
 - `report/oos_rmse_table.csv`
 - `report/diebold_mariano_vs_ar1.csv`
 - `report/data_quality_report.csv`
+- `report/dfm_diagnostics.csv`
 - `report/index_comparison.csv`
 - `report/index-vs-official-series.png`
 - `report/nowcast-error-over-time.png`
+- `report/research_findings.md`
+- `report/lead_lag.csv`
+- `report/bridge_sensitivity.csv`
+- `report/state_clusters.csv`
+- `report/turning_point_summary.csv`
+- `report/spillovers.csv`
+- `report/bridge_contributions.csv`
+
+## Live Registry Verification
+
+Populate `config/series_registry.yml` with provider-confirmed IDs, mark rows `verified: true` only after checking source metadata, then run:
+
+```bash
+FRED_API_KEY=... PYTHONPATH=src .venv/bin/python scripts/verify_registry.py --states CA
+```
+
+The verifier writes `report/registry_verification.csv`. FRED-hosted series can also be fetched as-of a vintage date through the `fetch_fred_series_as_of` helper; production work should use that path where ALFRED vintages are available.
 
 ## Limitations
 
