@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from regional_activity_nowcast.data import fetch_bea_state_gdp, load_series_registry, make_synthetic_panel, registry_specs
+from regional_activity_nowcast.data import fetch_live_registry_data, load_series_registry, make_synthetic_panel, registry_specs
 
 
 def main() -> None:
@@ -28,10 +28,7 @@ def main() -> None:
                 "No verified live indicator SeriesSpec entries found for the requested states. "
                 "Populate config/series_registry.yml with provider-confirmed IDs first."
             )
-        raise SystemExit(
-            "Live fetch orchestration is intentionally gated until every requested source has verified IDs "
-            "and provider-specific parsers. Use --synthetic for the smoke fixture."
-        )
+        monthly, target = fetch_live_registry_data(registry, args.states, args.start, args.end)
 
     Path("data/processed").mkdir(parents=True, exist_ok=True)
     monthly.to_csv("data/processed/monthly_indicators.csv", index=False)

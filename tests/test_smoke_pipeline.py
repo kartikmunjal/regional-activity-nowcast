@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from regional_activity_nowcast.data import apply_indicator_transforms, make_synthetic_panel, target_for_model
+from regional_activity_nowcast.data import apply_indicator_transforms, make_synthetic_panel, registry_series, target_for_model
 from regional_activity_nowcast.evaluate import expanding_window_backtest, metric_table, rmse_table, write_report_artifacts
 from regional_activity_nowcast.index import dynamic_factor_index, standardized_composite
 from regional_activity_nowcast.research import FindingConfig, robustness_grid, write_research_findings
@@ -18,6 +18,22 @@ def test_full_pipeline_smoke(tmp_path, monkeypatch):
     }
     transformed = apply_indicator_transforms(monthly, registry)
     assert transformed["payroll"].isna().sum() == 1
+    registry_with_ids = {
+        "indicators": [
+            {
+                "name": "payroll",
+                "source": "FRED",
+                "frequency": "monthly",
+                "release_lag_days": 21,
+                "transform": "pct_change",
+                "expected_sign": "positive",
+                "verified": True,
+                "series_by_state": {"CA": "DUMMY"},
+            }
+        ]
+    }
+    series_rows = registry_series(registry_with_ids, states=["CA"], source="FRED")
+    assert series_rows[0].name == "payroll"
     composite = standardized_composite(monthly)
     assert {"date", "state", "composite_index"}.issubset(composite.columns)
     dfm = dynamic_factor_index(monthly)

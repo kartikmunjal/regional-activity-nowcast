@@ -82,6 +82,18 @@ class SeriesSpec:
     description: str = ""
 
 
+@dataclass(frozen=True)
+class RegistrySeries:
+    name: str
+    source: str
+    state: str
+    series_id: str
+    frequency: str
+    release_lag_days: int
+    transform: str = "level"
+    expected_sign: str | None = None
+
+
 DEFAULT_RELEASE_LAGS = {
     "fred_monthly": 21,
     "fred_weekly": 7,
@@ -138,6 +150,33 @@ def registry_specs(registry: dict, states: list[str] | None = None) -> list[Seri
                 )
             )
     return specs
+
+
+def registry_series(registry: dict, states: list[str] | None = None, source: str | None = None) -> list[RegistrySeries]:
+    """Return verified registry rows with state/name metadata preserved."""
+    wanted_states = set(states or [])
+    rows: list[RegistrySeries] = []
+    for item in registry.get("indicators", []):
+        if source and item.get("source") != source:
+            continue
+        if item.get("verified") is not True:
+            continue
+        for state, series_id in (item.get("series_by_state") or {}).items():
+            if wanted_states and state not in wanted_states and state != "US":
+                continue
+            rows.append(
+                RegistrySeries(
+                    name=item.get("name", series_id),
+                    source=item.get("source", ""),
+                    state=state,
+                    series_id=series_id,
+                    frequency=item.get("frequency", "monthly"),
+                    release_lag_days=int(item.get("release_lag_days", 21)),
+                    transform=item.get("transform", "level"),
+                    expected_sign=item.get("expected_sign"),
+                )
+            )
+    return rows
 
 
 def verify_registry(registry: dict, states: list[str] | None = None) -> pd.DataFrame:
@@ -230,6 +269,60 @@ def fetch_fred_series(specs: list[SeriesSpec], start: str, end: str) -> pd.DataF
     frame.index.name = "date"
     cache_frame(frame, "fred", "verified_series")
     return frame
+
+
+def fetch_fred_registry_panel(registry: dict, states: list[str], start: str, end: str) -> pd.DataFrame:
+    """Fetch verified FRED registry rows and return a state/date indicator panel."""
+    key = os.getenv("FRED_API_KEY")
+    if not key:
+        raise RuntimeError("FRED_API_KEY is required. See README for key setup.")
+    rows = registry_series(registry, states=states, source="FRED")
+    if not rows:
+        return pd.DataFrame(columns=["date", "state"])
+    verification = verify_fred_series([row.series_id for row in rows], key)
+    missing = [sid for sid, ok in verification.items() if not ok]
+    if missing:
+        raise RuntimeError(f"FRED series failed verification: {missing}")
+
+    from fredapi import Fred
+
+    fred = Fred(api_key=key)
+    fetched: dict[str, pd.Series] = {}
+    for row in rows:
+        series = fred.get_series(row.series_id, observation_start=start, observation_end=end)
+        series.index = pd.to_datetime(series.index)
+        if row.frequency == "weekly":
+            series = series.resample("ME").mean()
+        else:
+            series = series.resample("ME").last()
+        fetched[row.series_id] = series.rename(row.series_id)
+    raw = pd.concat(fetched.values(), axis=1).sort_index()
+    raw.index.name = "date"
+    cache_frame(raw, "fred", "registry_indicator_raw")
+
+    pieces = []
+    for state in states:
+        state_frame = pd.DataFrame({"date": raw.index, "state": state})
+        for row in rows:
+            if row.state not in {state, "US"}:
+                continue
+            state_frame[row.name] = raw[row.series_id].to_numpy()
+        pieces.append(state_frame)
+    panel = pd.concat(pieces, ignore_index=True).sort_values(["state", "date"])
+    cache_frame(panel.set_index("date"), "fred", "registry_indicator_panel")
+    return panel
+
+
+def fetch_live_registry_data(registry: dict, states: list[str], start: str, end: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Fetch the verified live-data pilot panel from public APIs."""
+    start_year = pd.Timestamp(start).year
+    end_year = pd.Timestamp(end).year
+    monthly = fetch_fred_registry_panel(registry, states, start, end)
+    if monthly.empty or len([c for c in monthly.columns if c not in {"date", "state"}]) == 0:
+        raise RuntimeError("No verified FRED indicators were fetched. Populate and verify config/series_registry.yml first.")
+    target = fetch_bea_state_gdp(start_year, end_year, states)
+    target = target[(target["date"] >= pd.Timestamp(start)) & (target["date"] <= pd.Timestamp(end))]
+    return monthly, target
 
 
 def fetch_fred_series_as_of(specs: list[SeriesSpec], start: str, end: str, as_of: str) -> pd.DataFrame:

@@ -71,6 +71,8 @@ Phase 2 and later are research extensions added after the initial framework: ver
 
 Phase 3 adds robustness and falsification checks: alternative GDP target definitions, alternative nowcast lags, placebo lead-lag tests, expanding-window coefficient stability, and an economic sign audit against registry priors. It is described in `report/phase3_robustness_inference.md`.
 
+Phase 4 begins the live empirical pilot. It adds a deliberately diverse pilot-state file, FRED candidate discovery, verified-registry live fetching for FRED indicators plus BEA state GDP, and a live pilot runner. It is described in `report/phase4_live_empirical_pilot.md`.
+
 Key generated files:
 
 - `report/oos_metrics_table.csv`
@@ -92,6 +94,8 @@ Key generated files:
 - `report/turning_point_summary.csv`
 - `report/spillovers.csv`
 - `report/bridge_contributions.csv`
+- `report/fred_series_candidates.csv`
+- `report/registry_verification.csv`
 
 ## Live Registry Verification
 
@@ -102,6 +106,29 @@ FRED_API_KEY=... PYTHONPATH=src .venv/bin/python scripts/verify_registry.py --st
 ```
 
 The verifier writes `report/registry_verification.csv`. FRED-hosted series can also be fetched as-of a vintage date through the `fetch_fred_series_as_of` helper; production work should use that path where ALFRED vintages are available.
+
+## Phase 4 Live Pilot
+
+Set keys locally:
+
+```bash
+export FRED_API_KEY="..."
+export BEA_API_KEY="..."
+```
+
+Discover candidate FRED IDs:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/discover_fred_series.py --pilot-states config/pilot_states.yml
+```
+
+Manually inspect `report/fred_series_candidates.csv`, populate `config/series_registry.yml` with confirmed IDs, mark those rows `verified: true`, then run:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_live_pilot.py --start 2015-01-01 --end 2024-12-31 --target-transform qoq_ann
+```
+
+The live pilot writes `data/processed/monthly_indicators.csv`, `data/processed/quarterly_gdp.csv`, `report/registry_verification.csv`, updated forecast metrics, and live-data research findings.
 
 ## Limitations
 

@@ -1,0 +1,32 @@
+version: 1
+states:
+  - state: CA
+    rationale: technology, services, housing, large diversified economy
+    expected_exposures: [services, technology, housing]
+  - state: TX
+    rationale: energy, business formation, migration, construction
+    expected_exposures: [energy, business_formation, housing]
+  - state: FL
+    rationale: population growth, housing, tourism, services
+    expected_exposures: [housing, tourism, services]
+  - state: NY
+    rationale: finance, services, dense urban economy
+    expected_exposures: [finance, services, density]
+  - state: MI
+    rationale: manufacturing and durable goods exposure
+    expected_exposures: [manufacturing, autos]
+  - state: OH
+    rationale: diversified manufacturing and logistics
+    expected_exposures: [manufacturing, logistics]
+  - state: PA
+    rationale: diversified industrial and services mix
+    expected_exposures: [manufacturing, services]
+  - state: IL
+    rationale: logistics, finance, manufacturing, Midwest hub
+    expected_exposures: [logistics, finance, manufacturing]
+  - state: AZ
+    rationale: Sun Belt growth, housing, migration
+    expected_exposures: [housing, population_growth]
+  - state: NC
+    rationale: finance, technology, manufacturing, population growth
+    expected_exposures: [finance, technology, manufacturing]
