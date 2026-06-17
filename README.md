@@ -58,7 +58,8 @@ python3 -m venv .venv
 PYTHONPATH=src .venv/bin/python scripts/fetch_data.py --synthetic --states CA TX --start 2015-01-01 --end 2024-12-31
 PYTHONPATH=src .venv/bin/python scripts/build_index.py
 PYTHONPATH=src .venv/bin/python scripts/backtest.py --min-train-quarters 12 --target-transform level --nowcast-lag-days 45
-PYTHONPATH=src .venv/bin/python scripts/run_research_findings.py --target-transform qoq_ann --max-lag-quarters 4 --clusters 4 --data-label "synthetic CA/TX fixture"
+PYTHONPATH=src .venv/bin/python scripts/run_research_findings.py --target-transform qoq_ann --max-lag-quarters 4 --clusters 4 --placebo-permutations 100 --data-label "synthetic CA/TX fixture"
+PYTHONPATH=src .venv/bin/python scripts/run_research_robustness.py --target-transforms level qoq_ann yoy --nowcast-lags 15 45 75
 PYTHONPATH=src .venv/bin/python -m pytest -q
 ```
 
@@ -67,6 +68,8 @@ PYTHONPATH=src .venv/bin/python -m pytest -q
 Phase 1 is the initial deliverable from the original prompt: public-data-shaped data access, state activity indexes, DFM and bridge nowcasts, random-walk/AR(1) benchmarks, expanding-window evaluation, simulated ragged-edge discipline, report artifacts, tests, README, requirements, and MIT license. It is preserved in `report/phase1_initial_framework.md`.
 
 Phase 2 and later are research extensions added after the initial framework: verified-registry discipline, vintage-ready FRED helpers, lead-lag analysis, state sensitivity profiles, regional clusters, turning-point screens, spillover checks, and bridge contribution tables. Phase 2 is described in `report/phase2_research_layer.md` and generated into `report/research_findings.md`.
+
+Phase 3 adds robustness and falsification checks: alternative GDP target definitions, alternative nowcast lags, placebo lead-lag tests, expanding-window coefficient stability, and an economic sign audit against registry priors. It is described in `report/phase3_robustness_inference.md`.
 
 Key generated files:
 
@@ -81,6 +84,10 @@ Key generated files:
 - `report/research_findings.md`
 - `report/lead_lag.csv`
 - `report/bridge_sensitivity.csv`
+- `report/lead_lag_placebo.csv`
+- `report/coefficient_stability_summary.csv`
+- `report/economic_sign_audit.csv`
+- `report/robustness_grid.csv`
 - `report/state_clusters.csv`
 - `report/turning_point_summary.csv`
 - `report/spillovers.csv`

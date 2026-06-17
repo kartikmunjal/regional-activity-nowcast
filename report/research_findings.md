@@ -22,6 +22,14 @@ These findings are generated mechanically from the loaded panel. Treat them as r
 - CA: `payroll` has a positive 1-quarter lead signal for growth (correlation 0.294, 39 observations).
 - CA: `coincident` has a positive 1-quarter lead signal for growth (correlation 0.290, 39 observations).
 
+## Placebo Screen
+- CA: `business_formations` at 3 quarters has placebo p-value 0.030.
+- CA: `permits` at 4 quarters has placebo p-value 0.030.
+- CA: `permits` at 3 quarters has placebo p-value 0.040.
+- CA: `business_formations` at 4 quarters has placebo p-value 0.040.
+- CA: `business_formations` at 1 quarters has placebo p-value 0.040.
+- CA: `business_formations` at 2 quarters has placebo p-value 0.050.
+
 ## State Sensitivities
 - CA: `payroll` has a positive standardized bridge coefficient (0.434).
 - CA: `coincident` has a positive standardized bridge coefficient (0.266).
@@ -35,6 +43,14 @@ These findings are generated mechanically from the loaded panel. Treat them as r
 ## Regional Clusters
 - CA: cluster 0, dominant indicator `payroll`.
 - TX: cluster 1, dominant indicator `payroll`.
+
+## Coefficient Stability
+- TX `coincident`: mean coefficient 0.053, positive in 62.96% of expanding windows.
+- TX `permits`: mean coefficient -0.047, positive in 29.63% of expanding windows.
+- TX `claims`: mean coefficient -0.087, positive in 29.63% of expanding windows.
+- CA `permits`: mean coefficient -0.236, positive in 14.81% of expanding windows.
+- CA `business_formations`: mean coefficient 0.227, positive in 92.59% of expanding windows.
+- CA `claims`: mean coefficient 0.161, positive in 96.30% of expanding windows.
 
 ## Turning-Point Screen
 - CA: precision 0.722, recall 0.591, flags 18.

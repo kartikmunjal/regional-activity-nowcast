@@ -3,7 +3,7 @@ from pathlib import Path
 from regional_activity_nowcast.data import apply_indicator_transforms, make_synthetic_panel, target_for_model
 from regional_activity_nowcast.evaluate import expanding_window_backtest, metric_table, rmse_table, write_report_artifacts
 from regional_activity_nowcast.index import dynamic_factor_index, standardized_composite
-from regional_activity_nowcast.research import FindingConfig, write_research_findings
+from regional_activity_nowcast.research import FindingConfig, robustness_grid, write_research_findings
 
 
 def test_full_pipeline_smoke(tmp_path, monkeypatch):
@@ -51,7 +51,11 @@ def test_full_pipeline_smoke(tmp_path, monkeypatch):
         monthly,
         target,
         output_dir="report",
-        config=FindingConfig(target_transform="qoq_ann", max_lag_quarters=2),
+        config=FindingConfig(target_transform="qoq_ann", max_lag_quarters=2, placebo_permutations=3),
+        registry=registry,
     )
     assert not findings["lead_lag"].empty
+    assert "lead_lag_placebo" in findings
+    grid = robustness_grid(monthly, target, target_transforms=["level"], nowcast_lags=[45], min_train_quarters=8)
+    assert not grid.empty
     assert Path("report/research_findings.md").exists()

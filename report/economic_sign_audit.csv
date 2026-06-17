@@ -1,0 +1,13 @@
+state,indicator,expected_sign,estimated_sign,standardized_coefficient,passes_sign_audit
+CA,claims,negative,positive,0.13737988694705916,False
+CA,permits,positive,negative,-0.20690049858671386,False
+CA,business_formations,positive,positive,0.16610981829758312,True
+CA,coincident,positive,positive,0.2657070727145905,True
+CA,national_activity,positive,positive,0.0572985586332492,True
+CA,payroll,positive,positive,0.43448681287785607,True
+TX,business_formations,positive,positive,0.13970327931304025,True
+TX,claims,negative,negative,-0.21963754675799663,True
+TX,coincident,positive,positive,0.033216461389058864,True
+TX,national_activity,positive,positive,0.17394408409916384,True
+TX,payroll,positive,positive,0.47797511392272546,True
+TX,permits,positive,positive,0.03558609617542731,True

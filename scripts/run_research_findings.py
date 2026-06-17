@@ -19,6 +19,7 @@ def main() -> None:
     parser.add_argument("--target-transform", choices=["level", "qoq_ann", "yoy"], default="qoq_ann")
     parser.add_argument("--max-lag-quarters", type=int, default=4)
     parser.add_argument("--clusters", type=int, default=4)
+    parser.add_argument("--placebo-permutations", type=int, default=100)
     parser.add_argument("--data-label", default="synthetic fixture")
     args = parser.parse_args()
 
@@ -32,8 +33,10 @@ def main() -> None:
             target_transform=args.target_transform,
             max_lag_quarters=args.max_lag_quarters,
             n_clusters=args.clusters,
+            placebo_permutations=args.placebo_permutations,
         ),
         data_label=args.data_label,
+        registry=registry,
     )
     print("Generated research tables:")
     for name, frame in outputs.items():
@@ -42,4 +45,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

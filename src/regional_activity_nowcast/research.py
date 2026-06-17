@@ -208,11 +208,164 @@ def bridge_contributions(
     return pd.DataFrame(rows)
 
 
+def robustness_grid(
+    monthly_panel: pd.DataFrame,
+    target: pd.DataFrame,
+    target_transforms: list[str] | None = None,
+    nowcast_lags: list[int] | None = None,
+    min_train_quarters: int = 12,
+) -> pd.DataFrame:
+    """Run OOS backtests across target definitions and forecast-origin lags."""
+    from .evaluate import expanding_window_backtest, metric_table
+
+    transforms = target_transforms or ["level", "qoq_ann", "yoy"]
+    lags = nowcast_lags or [15, 45, 75]
+    rows = []
+    for transform in transforms:
+        for lag in lags:
+            try:
+                results = expanding_window_backtest(
+                    monthly_panel,
+                    target,
+                    min_train_quarters=min_train_quarters,
+                    target_transform=transform,
+                    nowcast_lag_days=lag,
+                )
+                metrics = metric_table(results)
+                metrics["target_transform"] = transform
+                metrics["nowcast_lag_days"] = lag
+                rows.append(metrics)
+            except Exception as exc:
+                rows.append(
+                    pd.DataFrame(
+                        [
+                            {
+                                "model": "ERROR",
+                                "rmse": np.nan,
+                                "mae": np.nan,
+                                "bias": np.nan,
+                                "directional_accuracy": np.nan,
+                                "n": 0,
+                                "target_transform": transform,
+                                "nowcast_lag_days": lag,
+                                "error_message": str(exc),
+                            }
+                        ]
+                    )
+                )
+    return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
+
+
+def coefficient_stability(
+    monthly_panel: pd.DataFrame,
+    target: pd.DataFrame,
+    target_transform: str = "qoq_ann",
+    min_train_quarters: int = 12,
+) -> pd.DataFrame:
+    """Track bridge coefficients through expanding windows."""
+    q_features = quarterly_features(monthly_panel)
+    y = target_for_model(target, target_transform)[["date", "state", "target_value"]]
+    dates = sorted(y["date"].unique())
+    features = _feature_columns(q_features)
+    rows = []
+    for forecast_date in dates[min_train_quarters:]:
+        train_y = y[y["date"] < forecast_date]
+        for state, x_state in q_features.groupby("state"):
+            merged = x_state.merge(train_y[train_y["state"] == state], on=["date", "state"], how="inner").dropna(subset=["target_value"])
+            if len(merged) < max(8, len(features) + 2):
+                continue
+            x = merged[features].fillna(merged[features].median(numeric_only=True).fillna(0))
+            scaler = StandardScaler()
+            model = Ridge(alpha=1.0).fit(scaler.fit_transform(x), merged["target_value"])
+            for feature, coef in zip(features, model.coef_):
+                rows.append(
+                    {
+                        "forecast_date": forecast_date,
+                        "state": state,
+                        "indicator": feature,
+                        "standardized_coefficient": float(coef),
+                        "target_transform": target_transform,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def coefficient_stability_summary(stability: pd.DataFrame) -> pd.DataFrame:
+    """Summarize coefficient sign stability over expanding windows."""
+    if stability.empty:
+        return pd.DataFrame(columns=["state", "indicator", "mean_coefficient", "std_coefficient", "positive_share", "windows"])
+    return (
+        stability.groupby(["state", "indicator"])["standardized_coefficient"]
+        .agg(
+            mean_coefficient="mean",
+            std_coefficient="std",
+            positive_share=lambda x: float((x > 0).mean()),
+            windows="count",
+        )
+        .reset_index()
+        .sort_values(["state", "mean_coefficient"], ascending=[True, False])
+    )
+
+
+def economic_sign_audit(sensitivity: pd.DataFrame, registry: dict | None = None) -> pd.DataFrame:
+    """Compare estimated bridge coefficient signs with registry priors."""
+    if sensitivity.empty or not registry:
+        return pd.DataFrame(columns=["state", "indicator", "expected_sign", "estimated_sign", "passes_sign_audit"])
+    expected = {item.get("name"): item.get("expected_sign") for item in registry.get("indicators", [])}
+    rows = []
+    for row in sensitivity.to_dict("records"):
+        exp = expected.get(row["indicator"])
+        est = "positive" if row["standardized_coefficient"] > 0 else "negative" if row["standardized_coefficient"] < 0 else "zero"
+        passes = (exp == est) if exp in {"positive", "negative"} else np.nan
+        rows.append(
+            {
+                "state": row["state"],
+                "indicator": row["indicator"],
+                "expected_sign": exp,
+                "estimated_sign": est,
+                "standardized_coefficient": row["standardized_coefficient"],
+                "passes_sign_audit": passes,
+            }
+        )
+    return pd.DataFrame(rows).sort_values(["passes_sign_audit", "state", "indicator"], na_position="last")
+
+
+def placebo_lead_lag_test(
+    monthly_panel: pd.DataFrame,
+    target: pd.DataFrame,
+    target_transform: str = "qoq_ann",
+    max_lag_quarters: int = 4,
+    permutations: int = 100,
+    seed: int = 7,
+) -> pd.DataFrame:
+    """Permutation placebo for lead-lag correlations within each state."""
+    rng = np.random.default_rng(seed)
+    actual = lead_lag_study(monthly_panel, target, max_lag_quarters, target_transform)
+    y = target_for_model(target, target_transform).copy()
+    placebo_abs: dict[tuple[str, str, int], list[float]] = {}
+    for _ in range(permutations):
+        shuffled = y.copy()
+        shuffled["target_value"] = shuffled.groupby("state")["target_value"].transform(lambda s: rng.permutation(s.to_numpy()))
+        shuffled_target = shuffled[["date", "state", "target_value"]].rename(columns={"target_value": "real_gdp"})
+        simulated = lead_lag_study(monthly_panel, shuffled_target, max_lag_quarters, "level")
+        for row in simulated.dropna().to_dict("records"):
+            key = (row["state"], row["indicator"], int(row["lead_quarters"]))
+            placebo_abs.setdefault(key, []).append(abs(row["correlation"]))
+    rows = []
+    for row in actual.dropna().to_dict("records"):
+        key = (row["state"], row["indicator"], int(row["lead_quarters"]))
+        null = np.array(placebo_abs.get(key, []))
+        p_value = float(((null >= abs(row["correlation"])).sum() + 1) / (len(null) + 1)) if len(null) else np.nan
+        rows.append({**row, "placebo_p_value": p_value, "permutations": int(len(null))})
+    return pd.DataFrame(rows).sort_values(["placebo_p_value", "abs_correlation"], ascending=[True, False], na_position="last")
+
+
 @dataclass(frozen=True)
 class FindingConfig:
     target_transform: str = "qoq_ann"
     max_lag_quarters: int = 4
     n_clusters: int = 4
+    placebo_permutations: int = 100
 
 
 def write_research_findings(
@@ -221,6 +374,7 @@ def write_research_findings(
     output_dir: str = "report",
     config: FindingConfig | None = None,
     data_label: str = "synthetic fixture",
+    registry: dict | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Generate research tables and a narrative markdown findings note."""
     cfg = config or FindingConfig()
@@ -235,10 +389,24 @@ def write_research_findings(
     turning_points, turning_summary = turning_point_flags(monthly_panel, target, cfg.target_transform)
     spillovers = spillover_study(monthly_panel, target, target_transform=cfg.target_transform)
     contributions = bridge_contributions(monthly_panel, target, cfg.target_transform)
+    stability = coefficient_stability(monthly_panel, target, cfg.target_transform)
+    stability_summary = coefficient_stability_summary(stability)
+    sign_audit = economic_sign_audit(sensitivity, registry)
+    placebo = placebo_lead_lag_test(
+        monthly_panel,
+        target,
+        target_transform=cfg.target_transform,
+        max_lag_quarters=cfg.max_lag_quarters,
+        permutations=cfg.placebo_permutations,
+    )
 
     outputs = {
         "lead_lag": lead_lag,
+        "lead_lag_placebo": placebo,
         "bridge_sensitivity": sensitivity,
+        "coefficient_stability": stability,
+        "coefficient_stability_summary": stability_summary,
+        "economic_sign_audit": sign_audit,
         "state_clusters": clusters,
         "turning_points": turning_points,
         "turning_point_summary": turning_summary,
@@ -250,7 +418,9 @@ def write_research_findings(
 
     top_contemporaneous = lead_lag.dropna().query("lead_quarters == 0").head(6)
     top_leads = lead_lag.dropna().query("lead_quarters > 0").head(8)
+    top_placebo = placebo.dropna(subset=["placebo_p_value"]).query("lead_quarters > 0").head(6)
     top_sens = sensitivity.head(8)
+    unstable = stability_summary.dropna().assign(distance=lambda x: (x["positive_share"] - 0.5).abs()).sort_values("distance").head(6)
     cluster_lines = clusters.sort_values(["cluster", "state"]).to_dict("records")
     narrative = ["# Phase 2: Research Findings", ""]
     narrative.append(f"Data label: **{data_label}**. Target transform: `{cfg.target_transform}`.")
@@ -279,6 +449,16 @@ def write_research_findings(
                 f"signal for growth (correlation {row['correlation']:.3f}, {int(row['observations'])} observations)."
             )
     narrative.append("")
+    narrative.append("## Placebo Screen")
+    if top_placebo.empty:
+        narrative.append("No leading correlations cleared the placebo table generation step.")
+    else:
+        for row in top_placebo.to_dict("records"):
+            narrative.append(
+                f"- {row['state']}: `{row['indicator']}` at {int(row['lead_quarters'])} quarters has placebo p-value "
+                f"{row['placebo_p_value']:.3f}."
+            )
+    narrative.append("")
     narrative.append("## State Sensitivities")
     if top_sens.empty:
         narrative.append("No bridge sensitivity estimates were available.")
@@ -296,6 +476,16 @@ def write_research_findings(
     else:
         for row in cluster_lines:
             narrative.append(f"- {row['state']}: cluster {int(row['cluster'])}, dominant indicator `{row['dominant_indicator']}`.")
+    narrative.append("")
+    narrative.append("## Coefficient Stability")
+    if unstable.empty:
+        narrative.append("No coefficient-stability summary was available.")
+    else:
+        for row in unstable.to_dict("records"):
+            narrative.append(
+                f"- {row['state']} `{row['indicator']}`: mean coefficient {row['mean_coefficient']:.3f}, "
+                f"positive in {row['positive_share']:.2%} of expanding windows."
+            )
     narrative.append("")
     narrative.append("## Turning-Point Screen")
     if turning_summary.empty:

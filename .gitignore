@@ -8,3 +8,4 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 .env
+.DS_Store
