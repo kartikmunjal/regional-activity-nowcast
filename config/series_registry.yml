@@ -12,55 +12,86 @@ target:
   frequency: quarterly
   release_lag_days: 90
   transform_options:
-    - level
-    - qoq_ann
-    - yoy
+  - level
+  - qoq_ann
+  - yoy
 indicators:
-  - name: payroll
-    source: FRED
-    frequency: monthly
-    transform: pct_change
-    release_lag_days: 21
-    expected_sign: positive
-    verified: false
-    series_by_state: {}
-  - name: coincident
-    source: FRED
-    frequency: monthly
-    transform: pct_change
-    release_lag_days: 21
-    expected_sign: positive
-    verified: false
-    series_by_state: {}
-  - name: claims
-    source: FRED
-    frequency: weekly
-    transform: pct_change
-    release_lag_days: 7
-    expected_sign: negative
-    verified: false
-    series_by_state: {}
-  - name: permits
-    source: Census
-    frequency: monthly
-    transform: level
-    release_lag_days: 30
-    expected_sign: positive
-    verified: false
-    series_by_state: {}
-  - name: business_formations
-    source: Census
-    frequency: monthly
-    transform: level
-    release_lag_days: 30
-    expected_sign: positive
-    verified: false
-    series_by_state: {}
-  - name: national_activity
-    source: FRED
-    frequency: monthly
-    transform: level
-    release_lag_days: 21
-    expected_sign: positive
-    verified: false
-    series_by_state: {}
+- name: payroll
+  source: FRED
+  frequency: monthly
+  transform: pct_change
+  release_lag_days: 21
+  expected_sign: positive
+  verified: true
+  series_by_state:
+    CA: CANA
+    TX: TXNA
+    FL: FLNA
+    NY: NYNA
+    MI: MINA
+    OH: OHNA
+    PA: PANA
+    IL: ILNA
+    AZ: AZNA
+    NC: NCNA
+- name: coincident
+  source: FRED
+  frequency: monthly
+  transform: pct_change
+  release_lag_days: 21
+  expected_sign: positive
+  verified: true
+  series_by_state:
+    CA: CAPHCI
+    TX: TXPHCI
+    FL: FLPHCI
+    NY: NYPHCI
+    MI: MIPHCI
+    OH: OHPHCI
+    PA: PAPHCI
+    IL: ILPHCI
+    AZ: AZPHCI
+    NC: NCPHCI
+- name: claims
+  source: FRED
+  frequency: weekly
+  transform: pct_change
+  release_lag_days: 7
+  expected_sign: negative
+  verified: true
+  series_by_state:
+    CA: CACCLAIMS
+    TX: TXCCLAIMS
+    FL: FLCCLAIMS
+    NY: NYCCLAIMS
+    MI: MICCLAIMS
+    OH: OHCCLAIMS
+    PA: PACCLAIMS
+    IL: ILCCLAIMS
+    AZ: AZCCLAIMS
+    NC: NCCCLAIMS
+- name: permits
+  source: Census
+  frequency: monthly
+  transform: level
+  release_lag_days: 30
+  expected_sign: positive
+  verified: false
+  series_by_state: {}
+- name: business_formations
+  source: Census
+  frequency: monthly
+  transform: level
+  release_lag_days: 30
+  expected_sign: positive
+  verified: false
+  series_by_state: {}
+- name: national_activity
+  source: FRED
+  frequency: monthly
+  transform: level
+  release_lag_days: 21
+  expected_sign: positive
+  verified: true
+  series_by_state:
+    US: USPHCI

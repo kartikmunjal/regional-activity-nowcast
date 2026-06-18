@@ -1,0 +1,5 @@
+indicator,series_by_state
+payroll,"{'CA': 'CANA', 'TX': 'TXNA', 'FL': 'FLNA', 'NY': 'NYNA', 'MI': 'MINA', 'OH': 'OHNA', 'PA': 'PANA', 'IL': 'ILNA', 'AZ': 'AZNA', 'NC': 'NCNA'}"
+coincident,"{'CA': 'CAPHCI', 'TX': 'TXPHCI', 'FL': 'FLPHCI', 'NY': 'NYPHCI', 'MI': 'MIPHCI', 'OH': 'OHPHCI', 'PA': 'PAPHCI', 'IL': 'ILPHCI', 'AZ': 'AZPHCI', 'NC': 'NCPHCI'}"
+claims,"{'CA': 'CACCLAIMS', 'TX': 'TXCCLAIMS', 'FL': 'FLCCLAIMS', 'NY': 'NYCCLAIMS', 'MI': 'MICCLAIMS', 'OH': 'OHCCLAIMS', 'PA': 'PACCLAIMS', 'IL': 'ILCCLAIMS', 'AZ': 'AZCCLAIMS', 'NC': 'NCCCLAIMS'}"
+national_activity,{'US': 'USPHCI'}

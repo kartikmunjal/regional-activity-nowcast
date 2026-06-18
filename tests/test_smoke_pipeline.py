@@ -1,6 +1,8 @@
+import os
 from pathlib import Path
 
 from regional_activity_nowcast.data import apply_indicator_transforms, make_synthetic_panel, registry_series, target_for_model
+from regional_activity_nowcast.env import load_local_env
 from regional_activity_nowcast.evaluate import expanding_window_backtest, metric_table, rmse_table, write_report_artifacts
 from regional_activity_nowcast.index import dynamic_factor_index, standardized_composite
 from regional_activity_nowcast.policy_controls import (
@@ -96,3 +98,12 @@ def test_policy_controls_export_smoke(tmp_path, monkeypatch):
     assert {"state", "year", "avg_activity_index", "avg_activity_surprise"}.issubset(annual.columns)
     assert set(annual["state"]) == {"CA", "TX"}
     assert not codebook.empty
+
+
+def test_local_env_loader_does_not_override_existing_values(tmp_path, monkeypatch):
+    env_path = tmp_path / ".env"
+    env_path.write_text("SAMPLE_KEY=from_file\nEXISTING_KEY=from_file\n", encoding="utf-8")
+    monkeypatch.setenv("EXISTING_KEY", "from_shell")
+    load_local_env(env_path)
+    assert os.environ["SAMPLE_KEY"] == "from_file"
+    assert os.environ["EXISTING_KEY"] == "from_shell"

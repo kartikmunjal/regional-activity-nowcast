@@ -11,6 +11,8 @@ import pandas as pd
 import requests
 import yaml
 
+from regional_activity_nowcast.env import load_local_env
+
 
 QUERY_TEMPLATES = {
     "payroll": "{state} nonfarm payroll employment seasonally adjusted",
@@ -42,6 +44,7 @@ def main() -> None:
     parser.add_argument("--out", default="report/fred_series_candidates.csv")
     args = parser.parse_args()
 
+    load_local_env()
     api_key = os.getenv("FRED_API_KEY")
     if not api_key:
         raise SystemExit("FRED_API_KEY is required for discovery.")

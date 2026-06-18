@@ -1,0 +1,9 @@
+provider,present,active,message
+FRED,True,True,ok
+BEA,True,False,"{'APIErrorCode': '4', 'APIErrorDescription': 'This UserId is not active. Please activate it and try again.'}"
+Census,True,False,"
+<html style=""font-size: 14px;"">
+    <head>
+        <title>Invalid Key</title>
+        <link rel=""icon"" type=""image/x-icon"" href=""favicon.ico"">
+        <link rel=""stylesheet"" type=""text/css"" href=""ass"

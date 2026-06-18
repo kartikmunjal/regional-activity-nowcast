@@ -122,13 +122,27 @@ export FRED_API_KEY="..."
 export BEA_API_KEY="..."
 ```
 
+Or place them in a local `.env` file. The scripts load `.env` automatically and `.env` is ignored by git.
+
+Validate provider access without printing secrets:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/validate_api_keys.py
+```
+
 Discover candidate FRED IDs:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/discover_fred_series.py --pilot-states config/pilot_states.yml
 ```
 
-Manually inspect `report/fred_series_candidates.csv`, populate `config/series_registry.yml` with confirmed IDs, mark those rows `verified: true`, then run:
+Manually inspect `report/fred_series_candidates.csv`, or bootstrap the standard FRED pilot-state mappings and verify them:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/bootstrap_fred_registry.py --verify
+```
+
+Then run:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_live_pilot.py --start 2015-01-01 --end 2024-12-31 --target-transform qoq_ann

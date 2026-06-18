@@ -14,6 +14,10 @@ import pandas as pd
 import requests
 import yaml
 
+from .env import load_local_env
+
+
+load_local_env()
 
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
@@ -233,20 +237,41 @@ def verify_fred_series(series_ids: Iterable[str], api_key: str | None = None) ->
     key = api_key or os.getenv("FRED_API_KEY")
     if not key:
         raise RuntimeError("FRED_API_KEY is required to verify FRED series IDs.")
-    try:
-        from fredapi import Fred
-    except ImportError as exc:
-        raise RuntimeError("Install fredapi before fetching FRED data.") from exc
 
-    fred = Fred(api_key=key)
     out: dict[str, bool] = {}
     for series_id in series_ids:
         try:
-            fred.get_series_info(series_id)
-            out[series_id] = True
+            response = requests.get(
+                "https://api.stlouisfed.org/fred/series",
+                params={"series_id": series_id, "api_key": key, "file_type": "json"},
+                timeout=30,
+            )
+            out[series_id] = response.ok and bool(response.json().get("seriess"))
         except Exception:
             out[series_id] = False
     return out
+
+
+def _fetch_fred_observations(series_id: str, start: str, end: str, api_key: str) -> pd.Series:
+    response = requests.get(
+        "https://api.stlouisfed.org/fred/series/observations",
+        params={
+            "series_id": series_id,
+            "api_key": api_key,
+            "file_type": "json",
+            "observation_start": start,
+            "observation_end": end,
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    observations = response.json().get("observations", [])
+    frame = pd.DataFrame(observations)
+    if frame.empty:
+        return pd.Series(dtype=float, name=series_id)
+    values = pd.to_numeric(frame["value"].replace(".", np.nan), errors="coerce")
+    series = pd.Series(values.to_numpy(), index=pd.to_datetime(frame["date"]), name=series_id)
+    return series
 
 
 def fetch_fred_series(specs: list[SeriesSpec], start: str, end: str) -> pd.DataFrame:
@@ -258,12 +283,9 @@ def fetch_fred_series(specs: list[SeriesSpec], start: str, end: str) -> pd.DataF
     if missing:
         raise RuntimeError(f"FRED series failed verification: {missing}")
 
-    from fredapi import Fred
-
-    fred = Fred(api_key=key)
     frames = []
     for spec in specs:
-        s = fred.get_series(spec.series_id, observation_start=start, observation_end=end)
+        s = _fetch_fred_observations(spec.series_id, start, end, key)
         frames.append(s.rename(spec.series_id))
     frame = pd.concat(frames, axis=1).sort_index()
     frame.index.name = "date"
@@ -284,12 +306,9 @@ def fetch_fred_registry_panel(registry: dict, states: list[str], start: str, end
     if missing:
         raise RuntimeError(f"FRED series failed verification: {missing}")
 
-    from fredapi import Fred
-
-    fred = Fred(api_key=key)
     fetched: dict[str, pd.Series] = {}
     for row in rows:
-        series = fred.get_series(row.series_id, observation_start=start, observation_end=end)
+        series = _fetch_fred_observations(row.series_id, start, end, key)
         series.index = pd.to_datetime(series.index)
         if row.frequency == "weekly":
             series = series.resample("ME").mean()
@@ -390,7 +409,12 @@ def fetch_bea_state_gdp(start_year: int, end_year: int, states: list[str]) -> pd
         }
         response = requests.get("https://apps.bea.gov/api/data", params=params, timeout=30)
         response.raise_for_status()
-        data = response.json()["BEAAPI"]["Results"]["Data"]
+        payload = response.json()
+        results = payload.get("BEAAPI", {}).get("Results", {})
+        if "Data" not in results:
+            error = results.get("Error") or payload.get("BEAAPI", {}).get("Error") or "Unknown BEA API error"
+            raise RuntimeError(f"BEA state GDP fetch failed for {state}: {error}")
+        data = results["Data"]
         for item in data:
             rows.append(
                 {
