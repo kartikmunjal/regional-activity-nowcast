@@ -1,0 +1,8 @@
+field,definition
+avg_activity_index,Average quarterly standardized regional activity index in the state-year.
+avg_activity_momentum,Average quarter-to-quarter change in the regional activity index.
+avg_activity_percentile,"Within-state percentile rank of quarterly activity, averaged over the year."
+avg_negative_indicator_breadth,Average share of indicators deteriorating quarter over quarter.
+avg_activity_surprise,Average actual-minus-predicted nowcast surprise; positive means stronger than expected.
+avg_abs_error_improvement_vs_benchmark,Positive values mean the chosen model beat the benchmark in absolute error.
+avg_available_indicator_share,Average share of indicators available at the forecast origin.

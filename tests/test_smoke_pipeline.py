@@ -3,6 +3,12 @@ from pathlib import Path
 from regional_activity_nowcast.data import apply_indicator_transforms, make_synthetic_panel, registry_series, target_for_model
 from regional_activity_nowcast.evaluate import expanding_window_backtest, metric_table, rmse_table, write_report_artifacts
 from regional_activity_nowcast.index import dynamic_factor_index, standardized_composite
+from regional_activity_nowcast.policy_controls import (
+    annual_policy_controls,
+    nowcast_surprises,
+    policy_control_codebook,
+    quarterly_activity_controls,
+)
 from regional_activity_nowcast.research import FindingConfig, robustness_grid, write_research_findings
 
 
@@ -75,3 +81,18 @@ def test_full_pipeline_smoke(tmp_path, monkeypatch):
     grid = robustness_grid(monthly, target, target_transforms=["level"], nowcast_lags=[45], min_train_quarters=8)
     assert not grid.empty
     assert Path("report/research_findings.md").exists()
+
+
+def test_policy_controls_export_smoke(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monthly, target = make_synthetic_panel(["CA", "TX"], "2016-01-01", "2023-12-31")
+    results = expanding_window_backtest(monthly, target, min_train_quarters=8, target_transform="qoq_ann")
+    q_controls = quarterly_activity_controls(monthly, target, target_transform="qoq_ann")
+    surprises = nowcast_surprises(results, model="bridge", benchmark="ar1")
+    annual = annual_policy_controls(q_controls, surprises)
+    codebook = policy_control_codebook()
+    assert {"composite_index", "activity_momentum", "negative_indicator_breadth"}.issubset(q_controls.columns)
+    assert {"activity_surprise", "abs_error_improvement_vs_benchmark"}.issubset(surprises.columns)
+    assert {"state", "year", "avg_activity_index", "avg_activity_surprise"}.issubset(annual.columns)
+    assert set(annual["state"]) == {"CA", "TX"}
+    assert not codebook.empty

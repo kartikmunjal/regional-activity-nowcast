@@ -73,6 +73,8 @@ Phase 3 adds robustness and falsification checks: alternative GDP target definit
 
 Phase 4 begins the live empirical pilot. It adds a deliberately diverse pilot-state file, FRED candidate discovery, verified-registry live fetching for FRED indicators plus BEA state GDP, and a live pilot runner. It is described in `report/phase4_live_empirical_pilot.md`.
 
+Phase 5 turns the nowcast into a companion data product for causal-policy research. It exports state-quarter and state-year activity controls, nowcast surprises, and a codebook that can be merged into the minimum-wage causal-policy repo as macro controls or heterogeneity variables. It is described in `report/phase5_policy_controls_bridge.md`.
+
 Key generated files:
 
 - `report/oos_metrics_table.csv`
@@ -96,6 +98,10 @@ Key generated files:
 - `report/bridge_contributions.csv`
 - `report/fred_series_candidates.csv`
 - `report/registry_verification.csv`
+- `report/quarterly_policy_controls.csv`
+- `report/nowcast_surprises.csv`
+- `report/state_year_policy_controls.csv`
+- `report/policy_control_codebook.csv`
 
 ## Live Registry Verification
 
@@ -129,6 +135,19 @@ PYTHONPATH=src .venv/bin/python scripts/run_live_pilot.py --start 2015-01-01 --e
 ```
 
 The live pilot writes `data/processed/monthly_indicators.csv`, `data/processed/quarterly_gdp.csv`, `report/registry_verification.csv`, updated forecast metrics, and live-data research findings.
+
+## Phase 5 Policy-Control Export
+
+After a nowcast run has written `data/processed/backtest_results.csv`, export state-year controls for downstream causal-policy panels:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/export_policy_controls.py \
+  --target-transform qoq_ann \
+  --model bridge \
+  --benchmark ar1
+```
+
+The annual output `report/state_year_policy_controls.csv` is keyed by `state` and `year`, so it can be merged into state-year or county-year policy designs. The controls should be interpreted as regional-cycle adjustments, not as causal estimates by themselves.
 
 ## Limitations
 
