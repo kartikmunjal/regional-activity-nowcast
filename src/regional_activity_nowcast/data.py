@@ -402,8 +402,8 @@ def fetch_bea_state_gdp(start_year: int, end_year: int, states: list[str]) -> pd
             "datasetname": "Regional",
             "TableName": "SQGDP9",
             "LineCode": "1",
-            "GeoFIPS": STATE_FIPS[state],
-            "Year": f"{start_year},{end_year}",
+            "GeoFips": f"{STATE_FIPS[state]}000",
+            "Year": ",".join(str(year) for year in range(start_year, end_year + 1)),
             "Frequency": "Q",
             "ResultFormat": "JSON",
         }
@@ -497,7 +497,7 @@ def apply_indicator_transforms(panel: pd.DataFrame, registry: dict | None = None
             continue
         grouped = out.groupby("state")[col]
         if transform == "pct_change":
-            out[col] = grouped.pct_change() * 100
+            out[col] = grouped.pct_change(fill_method=None) * 100
         elif transform == "diff":
             out[col] = grouped.diff()
         elif transform == "log_diff":

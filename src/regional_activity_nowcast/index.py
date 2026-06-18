@@ -19,7 +19,7 @@ def standardized_composite(panel: pd.DataFrame, invert: set[str] | None = None) 
     features = _feature_columns(panel)
     pieces = []
     for state, group in panel.sort_values("date").groupby("state"):
-        z = group[features].astype(float)
+        z = group[features].astype(float).replace([np.inf, -np.inf], np.nan)
         z = (z - z.mean()) / z.std(ddof=0).replace(0, np.nan)
         for col in set(features).intersection(invert):
             z[col] = -z[col]
@@ -35,7 +35,7 @@ def dynamic_factor_index(panel: pd.DataFrame, factors: int = 1) -> pd.DataFrame:
     features = _feature_columns(panel)
     outputs = []
     for state, group in panel.sort_values("date").groupby("state"):
-        y = group.set_index("date")[features].astype(float).asfreq("ME")
+        y = group.set_index("date")[features].astype(float).replace([np.inf, -np.inf], np.nan).asfreq("ME")
         if len(y.dropna(how="all")) < max(12, len(features) * 3):
             continue
         y_scaled = pd.DataFrame(StandardScaler().fit_transform(y), index=y.index, columns=y.columns)
@@ -57,7 +57,7 @@ def dynamic_factor_diagnostics(panel: pd.DataFrame, factors: int = 1) -> pd.Data
     features = _feature_columns(panel)
     rows = []
     for state, group in panel.sort_values("date").groupby("state"):
-        y = group.set_index("date")[features].astype(float).asfreq("ME")
+        y = group.set_index("date")[features].astype(float).replace([np.inf, -np.inf], np.nan).asfreq("ME")
         usable = len(y.dropna(how="all"))
         row = {"state": state, "observations": int(usable), "features": len(features)}
         if usable < max(12, len(features) * 3):

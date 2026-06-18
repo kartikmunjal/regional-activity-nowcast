@@ -45,7 +45,7 @@ def check_bea() -> dict:
             "datasetname": "Regional",
             "TableName": "SQGDP9",
             "LineCode": "1",
-            "GeoFIPS": "06",
+            "GeoFips": "06000",
             "Year": "2024",
             "Frequency": "Q",
             "ResultFormat": "JSON",

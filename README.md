@@ -35,20 +35,20 @@ Default release lags are 7 days for weekly FRED series, 21 days for monthly FRED
 
 ## Latest Metrics
 
-Current synthetic fixture run, CA and TX, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters, target transform `level`:
+Current verified public-data pilot, 10 states, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters, target transform `qoq_ann`, nowcast lag 45 days:
 
 | Model | OOS RMSE |
 | --- | ---: |
-| bridge | 1.065583 |
-| random_walk | 1.163414 |
-| ar1 | 1.241417 |
-| state_mean | 3.968898 |
-| national_bridge | 8.268097 |
-| dfm | 9.767166 |
-| pooled_mean | 9.796142 |
-| peer_average | 19.303375 |
+| bridge | 7.597299 |
+| dfm | 10.089316 |
+| state_mean | 10.110780 |
+| pooled_mean | 10.147367 |
+| national_bridge | 10.248023 |
+| peer_average | 15.605722 |
+| random_walk | 15.901583 |
+| ar1 | 19.991190 |
 
-These are smoke-test metrics, not live economic claims. Regenerate `report/oos_rmse_table.csv` after switching to verified live public data.
+The pilot uses verified FRED payroll, claims, coincident-index, and national-activity series plus BEA state real GDP. Census indicators are not yet included in the live pilot.
 
 ## Reproduce Latest Result
 
@@ -61,6 +61,15 @@ PYTHONPATH=src .venv/bin/python scripts/backtest.py --min-train-quarters 12 --ta
 PYTHONPATH=src .venv/bin/python scripts/run_research_findings.py --target-transform qoq_ann --max-lag-quarters 4 --clusters 4 --placebo-permutations 100 --data-label "synthetic CA/TX fixture"
 PYTHONPATH=src .venv/bin/python scripts/run_research_robustness.py --target-transforms level qoq_ann yoy --nowcast-lags 15 45 75
 PYTHONPATH=src .venv/bin/python -m pytest -q
+```
+
+Reproduce the verified public-data pilot:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/validate_api_keys.py
+PYTHONPATH=src .venv/bin/python scripts/bootstrap_fred_registry.py --verify
+PYTHONPATH=src .venv/bin/python scripts/run_live_pilot.py --start 2015-01-01 --end 2024-12-31 --target-transform qoq_ann --min-train-quarters 12 --placebo-permutations 20
+PYTHONPATH=src .venv/bin/python scripts/export_policy_controls.py --target-transform qoq_ann --model bridge --benchmark ar1
 ```
 
 ## Phased Research Workflow

@@ -29,6 +29,5 @@ FRED,PA,claims,PACCLAIMS,True
 FRED,IL,claims,ILCCLAIMS,True
 FRED,AZ,claims,AZCCLAIMS,True
 FRED,NC,claims,NCCCLAIMS,True
-FRED,US,national_activity,USPHCI,True
 Census,ALL,permits,,False
 Census,ALL,business_formations,,False

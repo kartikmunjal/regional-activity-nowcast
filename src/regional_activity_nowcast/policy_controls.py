@@ -31,6 +31,7 @@ def quarterly_activity_controls(
     )
     controls = q_features.merge(q_composite, on=["date", "state"], how="left")
     controls = controls.sort_values(["state", "date"]).copy()
+    controls = controls.replace([np.inf, -np.inf], np.nan)
     features = _feature_columns(q_features)
     controls["activity_momentum"] = controls.groupby("state")["composite_index"].diff()
     controls["activity_percentile"] = controls.groupby("state")["composite_index"].rank(pct=True)
@@ -77,6 +78,7 @@ def nowcast_surprises(
     out = selected.merge(base, on=["date", "state"], how="left")
     out["benchmark_abs_error"] = out["benchmark_error"].abs()
     out["abs_error_improvement_vs_benchmark"] = out["benchmark_abs_error"] - out["abs_error"]
+    out = out.replace([np.inf, -np.inf], np.nan)
     out["year"] = out["date"].dt.year
     out["quarter"] = out["date"].dt.quarter
     keep = [
@@ -101,6 +103,7 @@ def nowcast_surprises(
 def annual_policy_controls(quarterly_controls: pd.DataFrame, surprises: pd.DataFrame | None = None) -> pd.DataFrame:
     """Aggregate quarterly controls to state-year rows for causal-policy merges."""
     controls = quarterly_controls.copy()
+    controls = controls.replace([np.inf, -np.inf], np.nan)
     numeric_cols = [
         c
         for c in controls.select_dtypes(include=[np.number]).columns
@@ -117,6 +120,7 @@ def annual_policy_controls(quarterly_controls: pd.DataFrame, surprises: pd.DataF
     )
     if surprises is not None and not surprises.empty:
         s = surprises.copy()
+        s = s.replace([np.inf, -np.inf], np.nan)
         s_numeric = [
             c
             for c in s.select_dtypes(include=[np.number]).columns

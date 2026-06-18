@@ -1,3 +1,11 @@
 state,cluster,dominant_indicator
-CA,0,payroll
-TX,1,payroll
+AZ,0,coincident
+CA,0,coincident
+FL,3,coincident
+IL,2,coincident
+MI,3,coincident
+NC,2,coincident
+NY,1,payroll
+OH,0,coincident
+PA,1,coincident
+TX,2,coincident
