@@ -35,18 +35,18 @@ Default release lags are 7 days for weekly FRED series, 21 days for monthly FRED
 
 ## Latest Metrics
 
-Current verified public-data pilot, 10 states, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters, target transform `qoq_ann`, nowcast lag 45 days:
+Current verified public-data pilot, 48 causal-policy states/DC, 2015-01-01 through 2024-12-31, expanding-window backtest with 12 initial training quarters, target transform `qoq_ann`, nowcast lag 45 days:
 
 | Model | OOS RMSE |
 | --- | ---: |
-| bridge | 7.597299 |
-| dfm | 10.089316 |
-| state_mean | 10.110780 |
-| pooled_mean | 10.147367 |
-| national_bridge | 10.248023 |
-| peer_average | 15.605722 |
-| random_walk | 15.901583 |
-| ar1 | 19.991190 |
+| bridge | 7.097568 |
+| dfm | 9.690439 |
+| pooled_mean | 9.782320 |
+| state_mean | 9.796725 |
+| national_bridge | 9.860640 |
+| peer_average | 14.819768 |
+| random_walk | 15.407630 |
+| ar1 | 16.253622 |
 
 The pilot uses verified FRED payroll, claims, coincident-index, and national-activity series plus BEA state real GDP. Census indicators are not yet included in the live pilot.
 
@@ -67,8 +67,8 @@ Reproduce the verified public-data pilot:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/validate_api_keys.py
-PYTHONPATH=src .venv/bin/python scripts/bootstrap_fred_registry.py --verify
-PYTHONPATH=src .venv/bin/python scripts/run_live_pilot.py --start 2015-01-01 --end 2024-12-31 --target-transform qoq_ann --min-train-quarters 12 --placebo-permutations 20
+PYTHONPATH=src .venv/bin/python scripts/bootstrap_fred_registry.py --states-file config/causal_policy_states.yml --verify
+PYTHONPATH=src .venv/bin/python scripts/run_live_pilot.py --states AL AR AZ CA CO DC DE FL GA IA ID IL IN KS KY LA MA MD ME MI MN MO MS MT NC ND NE NH NJ NM NV NY OH OK OR PA RI SC SD TN TX UT VA VT WA WI WV WY --start 2015-01-01 --end 2024-12-31 --target-transform qoq_ann --min-train-quarters 12 --placebo-permutations 20 --skip-registry-verification
 PYTHONPATH=src .venv/bin/python scripts/export_policy_controls.py --target-transform qoq_ann --model bridge --benchmark ar1
 ```
 

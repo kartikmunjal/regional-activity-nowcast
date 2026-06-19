@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -31,6 +32,7 @@ STATE_FIPS = {
     "CO": "08",
     "CT": "09",
     "DE": "10",
+    "DC": "11",
     "FL": "12",
     "GA": "13",
     "HI": "15",
@@ -240,31 +242,44 @@ def verify_fred_series(series_ids: Iterable[str], api_key: str | None = None) ->
 
     out: dict[str, bool] = {}
     for series_id in series_ids:
-        try:
-            response = requests.get(
-                "https://api.stlouisfed.org/fred/series",
-                params={"series_id": series_id, "api_key": key, "file_type": "json"},
-                timeout=30,
-            )
-            out[series_id] = response.ok and bool(response.json().get("seriess"))
-        except Exception:
-            out[series_id] = False
+        ok = False
+        for attempt in range(3):
+            try:
+                response = requests.get(
+                    "https://api.stlouisfed.org/fred/series",
+                    params={"series_id": series_id, "api_key": key, "file_type": "json"},
+                    timeout=30,
+                )
+                ok = response.ok and bool(response.json().get("seriess"))
+                if ok or response.status_code == 400:
+                    break
+            except Exception:
+                ok = False
+            time.sleep(1.0 * (attempt + 1))
+        out[series_id] = ok
     return out
 
 
 def _fetch_fred_observations(series_id: str, start: str, end: str, api_key: str) -> pd.Series:
-    response = requests.get(
-        "https://api.stlouisfed.org/fred/series/observations",
-        params={
-            "series_id": series_id,
-            "api_key": api_key,
-            "file_type": "json",
-            "observation_start": start,
-            "observation_end": end,
-        },
-        timeout=30,
-    )
-    response.raise_for_status()
+    response = None
+    for attempt in range(4):
+        response = requests.get(
+            "https://api.stlouisfed.org/fred/series/observations",
+            params={
+                "series_id": series_id,
+                "api_key": api_key,
+                "file_type": "json",
+                "observation_start": start,
+                "observation_end": end,
+            },
+            timeout=30,
+        )
+        if response.status_code != 429:
+            break
+        time.sleep(5.0 * (attempt + 1))
+    if response is None or not response.ok:
+        status = getattr(response, "status_code", "unknown")
+        raise RuntimeError(f"FRED observation fetch failed for {series_id} with HTTP status {status}.")
     observations = response.json().get("observations", [])
     frame = pd.DataFrame(observations)
     if frame.empty:
@@ -301,10 +316,6 @@ def fetch_fred_registry_panel(registry: dict, states: list[str], start: str, end
     rows = registry_series(registry, states=states, source="FRED")
     if not rows:
         return pd.DataFrame(columns=["date", "state"])
-    verification = verify_fred_series([row.series_id for row in rows], key)
-    missing = [sid for sid, ok in verification.items() if not ok]
-    if missing:
-        raise RuntimeError(f"FRED series failed verification: {missing}")
 
     fetched: dict[str, pd.Series] = {}
     for row in rows:

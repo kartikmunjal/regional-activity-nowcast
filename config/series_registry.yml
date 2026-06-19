@@ -24,16 +24,54 @@ indicators:
   expected_sign: positive
   verified: true
   series_by_state:
-    CA: CANA
-    TX: TXNA
-    FL: FLNA
-    NY: NYNA
-    MI: MINA
-    OH: OHNA
-    PA: PANA
-    IL: ILNA
+    AL: ALNA
+    AR: ARNA
     AZ: AZNA
+    CA: CANA
+    CO: CONA
+    DC: DCNA
+    DE: DENA
+    FL: FLNA
+    GA: GANA
+    IA: IANA
+    ID: IDNA
+    IL: ILNA
+    IN: INNA
+    KS: KSNA
+    KY: KYNA
+    LA: LANA
+    MA: MANA
+    MD: MDNA
+    ME: MENA
+    MI: MINA
+    MN: MNNA
+    MO: MONA
+    MS: MSNA
+    MT: MTNA
     NC: NCNA
+    ND: NDNA
+    NE: NENA
+    NH: NHNA
+    NJ: NJNA
+    NM: NMNA
+    NV: NVNA
+    NY: NYNA
+    OH: OHNA
+    OK: OKNA
+    OR: ORNA
+    PA: PANA
+    RI: RINA
+    SC: SCNA
+    SD: SDNA
+    TN: TNNA
+    TX: TXNA
+    UT: UTNA
+    VA: VANA
+    VT: VTNA
+    WA: WANA
+    WI: WINA
+    WV: WVNA
+    WY: WYNA
 - name: coincident
   source: FRED
   frequency: monthly
@@ -42,16 +80,53 @@ indicators:
   expected_sign: positive
   verified: true
   series_by_state:
-    CA: CAPHCI
-    TX: TXPHCI
-    FL: FLPHCI
-    NY: NYPHCI
-    MI: MIPHCI
-    OH: OHPHCI
-    PA: PAPHCI
-    IL: ILPHCI
+    AL: ALPHCI
+    AR: ARPHCI
     AZ: AZPHCI
+    CA: CAPHCI
+    CO: COPHCI
+    DE: DEPHCI
+    FL: FLPHCI
+    GA: GAPHCI
+    IA: IAPHCI
+    ID: IDPHCI
+    IL: ILPHCI
+    IN: INPHCI
+    KS: KSPHCI
+    KY: KYPHCI
+    LA: LAPHCI
+    MA: MAPHCI
+    MD: MDPHCI
+    ME: MEPHCI
+    MI: MIPHCI
+    MN: MNPHCI
+    MO: MOPHCI
+    MS: MSPHCI
+    MT: MTPHCI
     NC: NCPHCI
+    ND: NDPHCI
+    NE: NEPHCI
+    NH: NHPHCI
+    NJ: NJPHCI
+    NM: NMPHCI
+    NV: NVPHCI
+    NY: NYPHCI
+    OH: OHPHCI
+    OK: OKPHCI
+    OR: ORPHCI
+    PA: PAPHCI
+    RI: RIPHCI
+    SC: SCPHCI
+    SD: SDPHCI
+    TN: TNPHCI
+    TX: TXPHCI
+    UT: UTPHCI
+    VA: VAPHCI
+    VT: VTPHCI
+    WA: WAPHCI
+    WI: WIPHCI
+    WV: WVPHCI
+    WY: WYPHCI
 - name: claims
   source: FRED
   frequency: weekly
@@ -60,16 +135,54 @@ indicators:
   expected_sign: negative
   verified: true
   series_by_state:
-    CA: CACCLAIMS
-    TX: TXCCLAIMS
-    FL: FLCCLAIMS
-    NY: NYCCLAIMS
-    MI: MICCLAIMS
-    OH: OHCCLAIMS
-    PA: PACCLAIMS
-    IL: ILCCLAIMS
+    AL: ALCCLAIMS
+    AR: ARCCLAIMS
     AZ: AZCCLAIMS
+    CA: CACCLAIMS
+    CO: COCCLAIMS
+    DC: DCCCLAIMS
+    DE: DECCLAIMS
+    FL: FLCCLAIMS
+    GA: GACCLAIMS
+    IA: IACCLAIMS
+    ID: IDCCLAIMS
+    IL: ILCCLAIMS
+    IN: INCCLAIMS
+    KS: KSCCLAIMS
+    KY: KYCCLAIMS
+    LA: LACCLAIMS
+    MA: MACCLAIMS
+    MD: MDCCLAIMS
+    ME: MECCLAIMS
+    MI: MICCLAIMS
+    MN: MNCCLAIMS
+    MO: MOCCLAIMS
+    MS: MSCCLAIMS
+    MT: MTCCLAIMS
     NC: NCCCLAIMS
+    ND: NDCCLAIMS
+    NE: NECCLAIMS
+    NH: NHCCLAIMS
+    NJ: NJCCLAIMS
+    NM: NMCCLAIMS
+    NV: NVCCLAIMS
+    NY: NYCCLAIMS
+    OH: OHCCLAIMS
+    OK: OKCCLAIMS
+    OR: ORCCLAIMS
+    PA: PACCLAIMS
+    RI: RICCLAIMS
+    SC: SCCCLAIMS
+    SD: SDCCLAIMS
+    TN: TNCCLAIMS
+    TX: TXCCLAIMS
+    UT: UTCCLAIMS
+    VA: VACCLAIMS
+    VT: VTCCLAIMS
+    WA: WACCLAIMS
+    WI: WICCLAIMS
+    WV: WVCCLAIMS
+    WY: WYCCLAIMS
 - name: permits
   source: Census
   frequency: monthly

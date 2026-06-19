@@ -46,3 +46,7 @@ PYTHONPATH=src .venv/bin/python scripts/export_policy_controls.py \
 ```
 
 The export uses existing processed monthly indicators, BEA state GDP targets, and `data/processed/backtest_results.csv` if available.
+
+## Current Coverage
+
+The current verified public-data bridge is expanded to the 48 states/DC used by the causal-policy national panel. It writes 480 state-year rows for 2015-2024 and 10,368 model-level backtest rows. DC lacks a FRED Philadelphia Fed state coincident index, so its activity controls use payroll, claims, and national activity.

@@ -12,9 +12,9 @@ import yaml
 from regional_activity_nowcast.data import load_series_registry, verify_registry
 
 
-def _pilot_states(path: Path) -> list[str]:
-    pilot = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return [row["state"] for row in pilot["states"]]
+def _states_from_file(path: Path) -> list[str]:
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return [row["state"] if isinstance(row, dict) else row for row in payload["states"]]
 
 
 def _series_map(indicator: str, states: list[str]) -> dict[str, str]:
@@ -23,7 +23,7 @@ def _series_map(indicator: str, states: list[str]) -> dict[str, str]:
     if indicator == "claims":
         return {state: f"{state}CCLAIMS" for state in states}
     if indicator == "coincident":
-        return {state: f"{state}PHCI" for state in states}
+        return {state: f"{state}PHCI" for state in states if state != "DC"}
     if indicator == "national_activity":
         return {"US": "USPHCI"}
     return {}
@@ -33,13 +33,18 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", default="config/series_registry.yml")
     parser.add_argument("--pilot-states", default="config/pilot_states.yml")
+    parser.add_argument("--states-file", default=None)
+    parser.add_argument("--states", nargs="*", default=None)
     parser.add_argument("--out", default=None)
     parser.add_argument("--verify", action="store_true")
     args = parser.parse_args()
 
     registry_path = Path(args.registry)
     out_path = Path(args.out) if args.out else registry_path
-    states = _pilot_states(Path(args.pilot_states))
+    if args.states:
+        states = args.states
+    else:
+        states = _states_from_file(Path(args.states_file or args.pilot_states))
     registry = load_series_registry(registry_path)
     for item in registry.get("indicators", []):
         if item.get("source") != "FRED":

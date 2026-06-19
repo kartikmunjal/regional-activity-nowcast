@@ -25,17 +25,19 @@ def main() -> None:
     parser.add_argument("--min-train-quarters", type=int, default=12)
     parser.add_argument("--nowcast-lag-days", type=int, default=45)
     parser.add_argument("--placebo-permutations", type=int, default=100)
+    parser.add_argument("--skip-registry-verification", action="store_true")
     args = parser.parse_args()
 
     registry = load_series_registry(args.registry)
     pilot = yaml.safe_load(Path(args.pilot_states).read_text(encoding="utf-8"))
     states = args.states or [row["state"] for row in pilot["states"]]
-    verification = verify_registry(registry, states=states)
     Path("report").mkdir(parents=True, exist_ok=True)
-    verification.to_csv("report/registry_verification.csv", index=False)
-    fred_verification = verification[verification["source"] == "FRED"]
-    if fred_verification.empty or not fred_verification["verified"].all():
-        raise SystemExit("FRED registry verification failed or no verified FRED rows were found. See report/registry_verification.csv.")
+    if not args.skip_registry_verification:
+        verification = verify_registry(registry, states=states)
+        verification.to_csv("report/registry_verification.csv", index=False)
+        fred_verification = verification[verification["source"] == "FRED"]
+        if fred_verification.empty or not fred_verification["verified"].all():
+            raise SystemExit("FRED registry verification failed or no verified FRED rows were found. See report/registry_verification.csv.")
 
     monthly_raw, target = fetch_live_registry_data(registry, states, args.start, args.end)
     monthly = apply_indicator_transforms(monthly_raw, registry)
